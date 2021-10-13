@@ -1,5 +1,4 @@
 import numpy
-import json
 import math
 import pygmsh
 import time
@@ -23,7 +22,7 @@ class pyREMAKEmsh:
     
     def __init__(self, geometry_data, tol):
         """
-        Dictionary from input .json file
+        Construct dictionary from input .json file and set tolerance for Gmsh.
         """
         
         self.geometry_data = geometry_data
@@ -40,7 +39,7 @@ class pyREMAKEmsh:
 
     def HoleInfo(self, surface_id):
         """
-        Function which returns hole information from input dictionary
+        Returns hole information from input dictionary.
         """
         surface_holes_info = list()
         for i in range(len(self.geometry_data['SurfacesWithHoles'][surface_id]['holes'])):
@@ -59,11 +58,11 @@ class pyREMAKEmsh:
         
     def MakeHole(self,surface_id):
         """
-        Construct holes
+        Construct holes and update geometry dictionary.
         """
         def PlaneEquation(x, y, z):
             """
-            Finds coefficients defining the plane
+            Finds coefficients defining the plane defined with points x,y,z.
             """            
             a = (y[1] - x[1])*(z[2] - x[2]) - (z[1] - x[1])*(y[2] - x[2])
             b = (y[2] - x[2])*(z[0] - x[0]) - (z[2] - x[2])*(y[0] - x[0])
@@ -74,7 +73,9 @@ class pyREMAKEmsh:
             return numpy.array(arr)
 
         def angle_triangle(point1, point2, point3):  
-    
+            """
+            Calculate angle(in point1) in a triangle defined with point1, point2, point3.  
+            """
             x1 = point1[0]
             y1 = point1[1]
             z1 = point1[2]
@@ -96,7 +97,9 @@ class pyREMAKEmsh:
             return round(angle, 3)
 
         def angle_triangle_2(point1, point2, point3):  
-    
+            """
+            Calculating cosine of angle(in point1) in triangle defined with point1, point2, point3.
+            """
             x1 = point1[0]
             y1 = point1[1]
             z1 = point1[2]
@@ -116,20 +119,25 @@ class pyREMAKEmsh:
             return num / den
 
         def project_point_onto_plane(plane_coefficients, point_on_plane, point_to_project):
-
+            """
+            Calculates projection of a point_to_project onto plane defined with coefficients plane_coefficients.
+            point_on_plane needed for calculation of direction.
+            """
             plane_normal = numpy.array([plane_coefficients[0],plane_coefficients[1],plane_coefficients[2]])
             plane_normal = plane_normal/LA.norm(plane_normal)
 
             point_on_plane = numpy.array(point_on_plane)
             point_to_project = numpy.array(point_to_project)
 
-            distance = numpy.dot(point_to_project -point_on_plane, plane_normal)
+            distance = numpy.dot(point_to_project - point_on_plane, plane_normal)
             projected_point = point_to_project - distance*plane_normal
 
             return projected_point
 
         def get_endpoints_for_virtual_stiffener(point0, point1, point2, point3, referent_point):
-
+            """
+            Returns endpoints of a virtual stiffener(rod) on a plane defined with point0, point1, point2, point3 w.r.t. referent_point.
+            """
             point0 = numpy.array(point0)
             point1 = numpy.array(point1)
             point2 = numpy.array(point2)
@@ -157,7 +165,9 @@ class pyREMAKEmsh:
             return endpoints
 
         def IfPointIsInSegment(P, Q1, Q2):
-
+            """
+            Checks if point P is in segment defined with points Q1 and Q2.
+            """
             point_x = P[0]
             point_y = P[1]
             point_z = P[2]
@@ -189,6 +199,7 @@ class pyREMAKEmsh:
         tmp_surface_data = self.geometry_data['SurfacesWithHoles'][surface_id] 
         nodes_info = tmp_surface_data['nodesId']
 
+        # if hole is on girder put virtual stiffeners, else skip
         if tmp_surface_data['noneWebFlange'] == "Web":
             add_virtual_stiffeners_flag = True
         else:
@@ -200,9 +211,11 @@ class pyREMAKEmsh:
 
         number_of_points = list()
 
+        # check if surface has at least one right angle
         if angle_triangle(self.geometry_data['Points'][nodes_info[0]],self.geometry_data['Points'][nodes_info[1]],self.geometry_data['Points'][nodes_info[3]]) < 90 + self.tol  and angle_triangle(self.geometry_data['Points'][nodes_info[0]],self.geometry_data['Points'][nodes_info[1]],self.geometry_data['Points'][nodes_info[3]]) > 90 - self.tol:
             for i in range(len(holes_info)):
 
+                # calculate vectors spanning local coordinate system 
                 x_vector = numpy.array(numpy.array(self.geometry_data['Points'][nodes_info[1]]) - numpy.array(self.geometry_data['Points'][nodes_info[0]]))
                 x_vector = x_vector/LA.norm(x_vector)
 
@@ -214,11 +227,13 @@ class pyREMAKEmsh:
                 tmp_number_of_points_before = len(tmp_points)
                 hole_center = numpy.array(self.geometry_data['Points'][nodes_info[0]]) + holes_info[i][0][0]*x_vector + holes_info[i][0][1]*y_vector  
 
+                # read hole info
                 a = holes_info[i][1]
                 b = holes_info[i][2]
                 r = holes_info[i][3]
                 phi = holes_info[i][4]
 
+                # define new vectors w.r.t. hole rotation
                 if phi == 0.0:
                     x_vector_a = x_vector
                     y_vector_a = y_vector
@@ -247,15 +262,19 @@ class pyREMAKEmsh:
                     x_vector_a = -y_vector
                     y_vector_a = x_vector
 
+            
                 if not self.geometry_data['DistancesForMeshSize']:
                     tmp_dist = self.geometry_data["meshMaxSize"]
                 else:
                     tmp_dist = 0.25*(min(self.geometry_data['DistancesForMeshSize']) + max(self.geometry_data['DistancesForMeshSize']))
 
+                # check if hole has radius at the edges
                 if r > 0:
+                    # variable number of points for defining hole radius at the edges
                     number_of_points_on_circle = math.ceil(((r*math.pi)/2)/(2*tmp_dist))
                     coefficient_for_points = round(1/(number_of_points_on_circle+1),2)
 
+                    # find points defining hole
                     if a != 0.0 and b != 0.0:
                         
                         tmp_points.append(hole_center - (0.5*a + r)*x_vector_a - 0.5*b*y_vector_a)
@@ -392,6 +411,7 @@ class pyREMAKEmsh:
                             endpoints1 = get_endpoints_for_virtual_stiffener(self.geometry_data['Points'][nodes_info[0]], self.geometry_data['Points'][nodes_info[1]], self.geometry_data['Points'][nodes_info[2]], self.geometry_data['Points'][nodes_info[3]], point1)
                             endpoints2 = get_endpoints_for_virtual_stiffener(self.geometry_data['Points'][nodes_info[0]], self.geometry_data['Points'][nodes_info[1]], self.geometry_data['Points'][nodes_info[2]], self.geometry_data['Points'][nodes_info[3]], point2)
 
+
                     tmp_len_points = len(self.geometry_data['Points'].keys())
                     tmp_len_surface = list(self.geometry_data['Surfaces'].keys())[-1]
                     
@@ -401,6 +421,7 @@ class pyREMAKEmsh:
                     
                     self.geometry_data['Surfaces'][tmp_len_surface + 1] = tmp_surf
 
+                    # add virtual stiffeners
                     if add_virtual_stiffeners_flag == True:
                         tmp_len_points = len(self.geometry_data['Points'].keys())                        
                         tmp_len_virtual_stiffeners = list(self.virtual_stiffeners_dict.keys())[-1]
@@ -461,9 +482,11 @@ class pyREMAKEmsh:
                 tmp_number_of_points_after = len(tmp_points)
                 number_of_points.append(tmp_number_of_points_after - tmp_number_of_points_before)
 
+        # check if surface has at least one right angle
         else:
             for i in range(len(holes_info)):
-
+                
+                # calculate vectors spanning local coordinate system 
                 x_vector = numpy.array(numpy.array(self.geometry_data['Points'][nodes_info[1]]) - numpy.array(self.geometry_data['Points'][nodes_info[0]]))
                 x_vector = x_vector/LA.norm(x_vector)
                 
@@ -478,11 +501,13 @@ class pyREMAKEmsh:
                 tmp_number_of_points_before = len(tmp_points)
                 hole_center = numpy.array(self.geometry_data['Points'][nodes_info[0]]) + holes_info[i][0][0]*x_vector + holes_info[i][0][1]*y_vector  
 
+                # read hole info
                 a = holes_info[i][1]
                 b = holes_info[i][2]
                 r = holes_info[i][3]
                 phi = holes_info[i][4]
 
+                # define new vectors w.r.t. hole rotation
                 if phi == 0.0:
                     x_vector_a = x_vector
                     y_vector_a = y_vector
@@ -516,10 +541,13 @@ class pyREMAKEmsh:
                 else:
                     tmp_dist = 0.25*(min(self.geometry_data['DistancesForMeshSize']) + max(self.geometry_data['DistancesForMeshSize']))
 
+                # check if hole has radius at the edges
                 if r > 0:
+                    # variable number of points for defining hole radius at the edges
                     number_of_points_on_circle = math.ceil(((r*math.pi)/2)/(2*tmp_dist))
                     coefficient_for_points = round(1/(number_of_points_on_circle+1),2)
 
+                    # find points defining hole
                     if a != 0.0 and b != 0.0:
                         
                         tmp_points.append(hole_center - (0.5*a + r)*x_vector_a - 0.5*b*y_vector_a)
@@ -727,6 +755,7 @@ class pyREMAKEmsh:
                     
                     self.geometry_data['Surfaces'][tmp_len_surface + 1] = tmp_surf
 
+                    # add virtual stiffeners
                     if add_virtual_stiffeners_flag == True:
                         tmp_len_points = len(self.geometry_data['Points'].keys())
                         tmp_len_virtual_stiffeners = list(self.virtual_stiffeners_dict.keys())[-1]
@@ -758,23 +787,28 @@ class pyREMAKEmsh:
 
             del self.virtual_stiffeners_dict[0]
 
+            # add points
             self.Points_done = {}
             for i in self.geometry_data['Points'].keys():
                 tmp_add_point_var = geom.add_point(self.geometry_data['Points'][i]) 
                 self.Points_done[i] = tmp_add_point_var
         
+            # add stiffeners
             self.Lines_on_2edged_surface_done = list()
             for i in self.geometry_data['Stiffeners'].keys():
                 self.Lines_on_2edged_surface_done.append(geom.add_line(self.Points_done[self.geometry_data['Stiffeners'][i][0]], self.Points_done[self.geometry_data['Stiffeners'][i][1]]))
 
+            # add edges
             self.Edges_done = list()
             for i in self.geometry_data['Edges'].keys():
                 self.Edges_done.append(geom.add_line(self.Points_done[self.geometry_data['Edges'][i][0]], self.Points_done[self.geometry_data['Edges'][i][1]]))
             
+            # add virtual stiffeners
             self.edges_done_last_index = len(self.Edges_done)
             for i in self.virtual_stiffeners_dict.keys():
                 self.Edges_done.append(geom.add_line(self.Points_done[self.virtual_stiffeners_dict[i][0]], self.Points_done[self.virtual_stiffeners_dict[i][1]]))
 
+            # add surfaces
             self.Surfaces_done = list()
             for i in self.geometry_data['Surfaces'].keys():               
                 edge_points = list()
@@ -787,7 +821,7 @@ class pyREMAKEmsh:
 
             def PlaneEquation(x, y, z):
                 """
-                Finds coefficients defining the plane
+                Finds coefficients defining the plane.
                 """
                 a = (y[1] - x[1])*(z[2] - x[2]) - (z[1] - x[1])*(y[2] - x[2])
                 b = (y[2] - x[2])*(z[0] - x[0]) - (z[2] - x[2])*(y[0] - x[0])
@@ -798,7 +832,7 @@ class pyREMAKEmsh:
 
             def OnPlane(P, plane_coefficients):
                 """
-                Checks if point P lies on plane defined with plane_coefficients
+                Checks if point P lies on plane defined with plane_coefficients.
                 """
                 if abs(P[0]*plane_coefficients[0] + P[1]*plane_coefficients[1] + P[2]*plane_coefficients[2] + plane_coefficients[3]) < self.tol:
                     return True
@@ -807,7 +841,7 @@ class pyREMAKEmsh:
             
             def InTriangle(P, Q1, Q2, Q3):
                 """
-                Checks if point P is inside triangle defined with points Q1, Q2, Q3
+                Checks if point P is inside triangle defined with points Q1, Q2, Q3.
                 """
                 if abs(P[0] - Q1[0]) < self.tol and abs(P[1] - Q1[1]) < self.tol and abs(P[2] - Q1[2]) < self.tol:
                     return True 
@@ -837,7 +871,7 @@ class pyREMAKEmsh:
 
             def InSurfaceWith3Edges(P, Q1, Q2, Q3):
                 """
-                Checks if point P is inside surface defined with points Q1, Q2, Q3
+                Checks if point P is inside surface defined with points Q1, Q2, Q3.
                 """
                 if InTriangle(P, Q1, Q2, Q3):
                     return True
@@ -846,7 +880,7 @@ class pyREMAKEmsh:
             
             def InSurfaceWith4Edges(P, Q1, Q2, Q3, Q4):
                 """
-                Checks if point P is inside surface defined with points Q1, Q2, Q3, Q4
+                Checks if point P is inside surface defined with points Q1, Q2, Q3, Q4.
                 """
                 if InTriangle(P, Q1, Q2, Q3) or InTriangle(P, Q2, Q3, Q4) or InTriangle(P, Q3, Q4, Q1) or InTriangle(P, Q4, Q1, Q2):
                     return True
@@ -854,6 +888,10 @@ class pyREMAKEmsh:
                     False
 
             def IfPointIsInSegment(point_x, point_y, point_z, segment_start_x, segment_start_y, segment_start_z, segment_end_x, segment_end_y, segment_end_z):
+                """
+                Checks if point with coordinates point_x, point_y, point_z is inside segment 
+                with endpoints whose coordinates are segment_start_x, segment_start_y, segment_start_z, segment_end_x, segment_end_y, segment_end_z.
+                """
                 ab = math.sqrt((segment_end_x - segment_start_x)**2 + (segment_end_y - segment_start_y)**2 + (segment_end_z - segment_start_z)**2)
                 ap = math.sqrt((point_x - segment_start_x)**2 + (point_y - segment_start_y)**2 + (point_z - segment_start_z)**2)
                 pb = math.sqrt((point_x - segment_end_x)**2 + (point_y - segment_end_y)**2 + (point_z - segment_end_z)**2)
@@ -865,6 +903,7 @@ class pyREMAKEmsh:
             
             list_of_keys_of_used_points = copy.deepcopy(list(self.Points_done_not_on_any_entity.keys()))
 
+            # force mesh to contain points for response as nodes
             if self.Points_done_not_on_any_entity and self.Surfaces_done:
                 for i in self.Points_done_not_on_any_entity.keys():
                     for surface in self.Surfaces_done:
@@ -880,7 +919,7 @@ class pyREMAKEmsh:
                                     list_of_keys_of_used_points.remove(i)
                                     break
             
-            # only force points which are not already forced in surface loop
+            # only force mesh to contain points which are not already forced in surface loop
             if list_of_keys_of_used_points and self.Lines_on_2edged_surface_done:
                 for i in list_of_keys_of_used_points:
                     for line in self.Lines_on_2edged_surface_done:
@@ -1045,7 +1084,8 @@ class pyREMAKEmsh:
             
             self.start_time_102 = time.time()
 
-            # meshing geometry, see geometry.py from pygmsh for more input info 
+            # meshing geometry, see geometry.py from pygmsh for more input info
+            #  
             self.mesh = geom.generate_mesh(dim=2, verbose = False)
             self.end_time_102 = time.time()
             self.msh_name = "NonRecombinedMesh.msh"
@@ -1059,7 +1099,9 @@ class pyREMAKEmsh:
             pygmsh.write(self.msh_name)
 
     def MakeDict(self):
-        
+        """
+        Calls ConstructGeometry and prints time statistics.
+        """
         self.ConstructGeometry()
         
         print("\nStatistics summary\n")

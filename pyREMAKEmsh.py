@@ -16,6 +16,7 @@ from numpy import linalg as LA
 # pygmsh 7.1.8
 # Gmsh 4.7.1
 #
+# This software is published under the GPLv3 license (https://www.gnu.org/licenses/gpl-3.0.en.html).
 ###################################################################################################
 
 class pyREMAKEmsh:

@@ -1,13 +1,47 @@
 # pyREMAKEmsh
 
-## Dependencies
-* installed Gmsh - **pip3 install gmsh-sdk**
-* installed pygmsh - **pip install pygmsh**
-* **sudo apt-get install libxcursor1**
-* **sudo apt-get install libglu1**
+## **Description**
 
-## Documents
+**pyREMAKEmsh** is a meshing tool implemented in Python 3.7.6. adapted to the structures appearing in the ship structural analysis. The main contribution is the preprocessing algorithm which resolves the geometry of the object and divides it into plates where all of the intersections of the boundary edges are guaranteed to be the nodes of any mesh generated for such a geometry.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html) for more details.
+
+If you use **pyREMAKEmsh** in any program or publication, please acknowledge its authors by adding a reference to:<span style="color:red"> **Dodati clanak.** </span>
+
+## **Dependencies**
+* installed [Gmsh](https://gmsh.info/) (version 4.7.1 or above)
+* installed [pygmsh](https://github.com/nschloe/pygmsh) (version 7.1.8 or above)
+
+## **Documents**
 - **input(json)** - dictionary containing the description of the geometry
-- **output** - geo and msh files to be displayed by *gmsh*
+- **output** - geo and msh files to be displayed by *Gmsh*
 
- ## Example of usage
+## **Example of usage**
+```python
+import pyREMAKEmsh
+import json
+
+# Auxiliary function for loading input data
+def SaveJsonToDict(json_file):  
+    
+    with open(json_file) as f:
+        input_dictionary = json.load(f)
+
+    return input_dictionary
+
+tolerance = 1e-4
+input_data = 'GeometryData1.json'
+input_dictionary = SaveJsonToDict(input_data)
+pyREMAKEmsh.pyREMAKEmsh(input_dictionary, tolerance)
+
+```
+
+![Geometry](/Geometry1.png "Geometry")
+![Mesh](/Mesh1.png "Mesh")
+
+
+## **Authors**
+<span style="color:red"> **Mozda dodati autore iz clanka** </span>
+
+## **Licence**
+This software is published under the [GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html).

@@ -36,8 +36,8 @@ pyREMAKEmsh.pyREMAKEmsh(input_dictionary, tolerance)
 
 ```
 
-![Geometry](/Geometry1.png "Geometry")
-![Mesh](/Mesh1.png "Mesh")
+![Geometry](/Figures/Geometry1.png "Geometry")
+![Mesh](/Figures/Mesh1.png "Mesh")
 
 
 ## **Authors**

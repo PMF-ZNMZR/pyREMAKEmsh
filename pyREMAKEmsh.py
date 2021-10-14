@@ -17,7 +17,7 @@ from numpy import linalg as LA
 # Gmsh 4.7.1
 #
 # This software is published under the GPLv3 license (https://www.gnu.org/licenses/gpl-3.0.en.html).
-# It is published is distributed in the hope that it will be useful, 
+# It is distributed in the hope that it will be useful, 
 # but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY 
 # or FITNESS FOR A PARTICULAR PURPOSE. 
 ###################################################################################################

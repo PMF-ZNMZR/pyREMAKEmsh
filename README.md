@@ -8,7 +8,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 If you use **pyREMAKEmsh** in any program or publication, please acknowledge its authors by adding a reference to:
 
-> Grubišić, Luka; Lacmanović, Domagoj; Prebeg, Pero; Tambača, Josip. pyREMAKEmsh – automatic mesh generation for ship structural analysis using open source software //Preprint (2021) (scholarly, submitted) <a href="https://www.bib.irb.hr/1150462" title="pyREMAKEmsh">bibliographic info</a>
+> Grubišić, Luka; Lacmanović, Domagoj; Prebeg, Pero; Tambača, Josip. pyREMAKEmsh – automatic mesh generation for ship structural analysis using open source software //Preprint (2021) (scholarly, submitted, <a href="https://www.bib.irb.hr/1150462" title="pyREMAKEmsh">further bibliographic info</a>)
 
 ## **Dependencies**
 * installed [Gmsh](https://gmsh.info/) (version 4.7.1 or above)

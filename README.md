@@ -6,8 +6,9 @@
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html) for more details.
 
-If you use **pyREMAKEmsh** in any program or publication, please acknowledge its authors by adding a reference to:<span style="color:red"> Grubišić, Luka; Lacmanović, Domagoj; Prebeg, Pero; Tambača, Josip
-pyREMAKEmsh – automatic mesh generation for ship structural analysis using open source software //Preprint (2021) (scholarly, submitted) <a href="https://www.bib.irb.hr/1150462" title="pyREMAKEmsh">bibliographic info</a></span>
+If you use **pyREMAKEmsh** in any program or publication, please acknowledge its authors by adding a reference to:
+
+> Grubišić, Luka; Lacmanović, Domagoj; Prebeg, Pero; Tambača, Josip. pyREMAKEmsh – automatic mesh generation for ship structural analysis using open source software //Preprint (2021) (scholarly, submitted) <a href="https://www.bib.irb.hr/1150462" title="pyREMAKEmsh">bibliographic info</a>
 
 ## **Dependencies**
 * installed [Gmsh](https://gmsh.info/) (version 4.7.1 or above)

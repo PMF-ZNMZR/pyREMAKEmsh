@@ -17,9 +17,6 @@ from numpy import linalg as LA
 # Gmsh 4.7.1
 #
 # This software is published under the GPLv3 license (https://www.gnu.org/licenses/gpl-3.0.en.html).
-# It is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY 
-# or FITNESS FOR A PARTICULAR PURPOSE. 
 ###################################################################################################
 
 class pyREMAKEmsh:
@@ -981,7 +978,7 @@ class pyREMAKEmsh:
                     if len(self.Lines_on_2edged_surface_done) == 0 and len(self.Edges_done) == 1:
                         new_surfaces2 = geom.boolean_fragments(new_surfaces[0:], self.Edges_done[0])
 
-                    geom.remove_all_duplicates()
+                    gmsh.model.occ.removeAllDuplicates()
 
                 else: 
                     if len(self.Surfaces_done) == (self.number_of_holes_counter + 1):
@@ -1017,7 +1014,7 @@ class pyREMAKEmsh:
                     if len(self.Lines_on_2edged_surface_done) == 0 and len(self.Edges_done) == 1:
                         new_surfaces2 = geom.boolean_fragments(new_surfaces[0:], self.Edges_done[0])
 
-                    geom.remove_all_duplicates()
+                    gmsh.model.occ.removeAllDuplicates()
                     
             if len(self.Surfaces_done) == 1:
 
@@ -1049,7 +1046,7 @@ class pyREMAKEmsh:
                 if len(self.Lines_on_2edged_surface_done) == 0 and len(self.Edges_done) == 1:
                     new_surfaces2 = geom.boolean_fragments(self.Surfaces_done[0:], self.Edges_done[0])
 
-                geom.remove_all_duplicates()
+                gmsh.model.occ.removeAllDuplicates()
 
             if len(self.Surfaces_done) == 0:
 
@@ -1079,7 +1076,7 @@ class pyREMAKEmsh:
                 #if len(self.Lines_on_2edged_surface_done) == 0 and len(self.Edges_done) == 1:
                 #    new_surfaces2 = geom.boolean_fragments(self.Surfaces_done[0:], self.Edges_done[0])
                 
-                geom.remove_all_duplicates()
+                gmsh.model.occ.removeAllDuplicates()
 
             self.end_time_101 = time.time()
 

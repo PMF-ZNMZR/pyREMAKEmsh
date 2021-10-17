@@ -21,7 +21,7 @@ from numpy import linalg as LA
 
 class pyREMAKEmsh:
     
-    def __init__(self, geometry_data, tol):
+    def __init__(self, geometry_data, tol, input_data_name):
         """
         Construct dictionary from input .json file and set tolerance for Gmsh.
         """
@@ -36,6 +36,7 @@ class pyREMAKEmsh:
         self.geometry_data['PointsForResponse'] = {int(k): v for k, v in self.geometry_data['PointsForResponse'].items()}
 
         self.tol = tol
+        self.input_data_name = input_data_name
         self.MakeDict()
 
     def HoleInfo(self, surface_id):
@@ -939,7 +940,7 @@ class pyREMAKEmsh:
                 geom.characteristic_length_min = self.geometry_data["meshMinSize"]
                 geom.characteristic_length_max = self.geometry_data["meshMaxSize"]
 
-            self.geo_name = "GeometryBeforeBooleanOperations.geo_unrolled"
+            self.geo_name = "GeometryBeforeBooleanOperations-" + self.input_data_name + ".geo_unrolled"
             geom.save_geometry(self.geo_name)
 
             self.start_time_101 = time.time()
@@ -1080,7 +1081,7 @@ class pyREMAKEmsh:
 
             self.end_time_101 = time.time()
 
-            self.geo_name = "GeometryAfterBooleanOperations.geo_unrolled"
+            self.geo_name = "GeometryAfterBooleanOperations-" + self.input_data_name + ".geo_unrolled"
             geom.save_geometry(self.geo_name)
             
             self.start_time_102 = time.time()
@@ -1090,7 +1091,7 @@ class pyREMAKEmsh:
             gmsh.option.setNumber("Mesh.Algorithm", 9)
             self.mesh = geom.generate_mesh(dim=2, verbose = False)
             self.end_time_102 = time.time()
-            self.msh_name = "NonRecombinedMesh.msh"
+            self.msh_name = "NonRecombinedMesh-" + self.input_data_name + ".msh"
             pygmsh.write(self.msh_name)
 
             gmsh.model.mesh.removeDuplicateNodes()
@@ -1098,7 +1099,7 @@ class pyREMAKEmsh:
             self.start_time_103 = time.time()
             gmsh.model.mesh.recombine()
             self.end_time_103 = time.time()
-            self.msh_name = "RecombinedFinalMesh.msh"
+            self.msh_name = "RecombinedFinalMesh-" + self.input_data_name + ".msh"
             pygmsh.write(self.msh_name)
 
     def MakeDict(self):
@@ -1111,4 +1112,3 @@ class pyREMAKEmsh:
         print("Boolean operations --- %s seconds ---" % (self.end_time_101 - self.start_time_101))
         print("Triangulation --- %s seconds ---" % (self.end_time_102 - self.start_time_102))
         print("Recombination --- %s seconds ---" % (self.end_time_103 - self.start_time_103))
-

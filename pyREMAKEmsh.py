@@ -1086,13 +1086,15 @@ class pyREMAKEmsh:
             self.start_time_102 = time.time()
 
             # meshing geometry, see geometry.py from pygmsh for more input info
-            #  
+            #
+            gmsh.option.setNumber("Mesh.Algorithm", 9)
             self.mesh = geom.generate_mesh(dim=2, verbose = False)
             self.end_time_102 = time.time()
             self.msh_name = "NonRecombinedMesh.msh"
             pygmsh.write(self.msh_name)
 
             gmsh.model.mesh.removeDuplicateNodes()
+            gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
             self.start_time_103 = time.time()
             gmsh.model.mesh.recombine()
             self.end_time_103 = time.time()

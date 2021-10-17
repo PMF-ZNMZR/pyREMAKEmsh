@@ -19,8 +19,13 @@ If you use **pyREMAKEmsh** in any program or publication, please acknowledge its
 - **output** - geo and msh files to be displayed by *Gmsh*
 
 ## **Example of usage**
+```console
+python3 Execute-pyREMAKEmsh.py GeometryData1.json
+```
+
 ```python
 import pyREMAKEmsh
+import sys
 import json
 
 # Auxiliary function for loading input data
@@ -32,9 +37,12 @@ def SaveJsonToDict(json_file):
     return input_dictionary
 
 tolerance = 1e-4
-input_data = 'GeometryData1.json'
-input_dictionary = SaveJsonToDict(input_data)
-pyREMAKEmsh.pyREMAKEmsh(input_dictionary, tolerance)
+input_data_name = str(sys.argv[1])
+input_dictionary = SaveJsonToDict(input_data_name)
+
+# remove .json from string
+input_data_name = input_data_name[0:-5]
+pyREMAKEmsh.pyREMAKEmsh(input_dictionary, tolerance, input_data_name)
 
 ```
 

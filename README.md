@@ -20,7 +20,7 @@ If you use **pyREMAKEmsh** in any program or publication, please acknowledge its
 
 ## **Example of usage**
 ```console
-python3 Execute-pyREMAKEmsh.py GeometryData1.json
+python3 Execute-pyREMAKEmsh.py ./InputData/GeometryData1.json
 ```
 
 ```python
@@ -44,10 +44,10 @@ tolerance = 1e-4
 input_data_name = str(sys.argv[1])
 input_dictionary = SaveJsonToDict(input_data_name)
 
-# remove .json from string
-input_data_name = input_data_name[0:-5]
+# Remove everyting from input string except name of the file
+input_data_name = input_data_name.split("/")
+input_data_name = input_data_name[-1][0:-5]
 pyREMAKEmsh.pyREMAKEmsh(input_dictionary, tolerance, input_data_name)
-
 ```
 
 ![Geometry](/Figures/Geometry1.png "Geometry")

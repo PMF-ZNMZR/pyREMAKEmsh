@@ -930,7 +930,7 @@ class pyREMAKEmsh:
                             geom.boolean_fragments(line, self.Points_done_not_on_any_entity[i], delete_first = False, delete_other = False)
                             break
             
-            # set minimal and maximal element edge length
+            # set minimal and maximal element edge length in mesh, i.e. mesh element size
             if self.geometry_data['DistancesForMeshSize']:
         
                 geom.characteristic_length_min = 0.5*(min(self.geometry_data['DistancesForMeshSize']) + max(self.geometry_data['DistancesForMeshSize']))

@@ -16,7 +16,7 @@ If you use **pyREMAKEmsh** in any program or publication, please acknowledge its
 
 ## **Documents**
 - **input(json)** - dictionary containing the description of the geometry
-- **output** - geo and msh files to be displayed by *Gmsh*
+- **output** - figures with mesh and time statistics, geo and msh files to be displayed by *Gmsh*
 
 ## **Example of usage**
 ```console

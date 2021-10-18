@@ -5,6 +5,7 @@ import time
 import gmsh
 import copy
 
+import matplotlib.pyplot as plt
 from numpy import linalg as LA
 
 ###################################################################################################
@@ -1102,13 +1103,508 @@ class pyREMAKEmsh:
             self.msh_name = "RecombinedFinalMesh-" + self.input_data_name + ".msh"
             pygmsh.write(self.msh_name)
 
+    def ComputeStatistics(self):
+        """
+        Reading data from Gmsh mesh file.
+        """
+        f = open(self.msh_name, "r")
+        counter = 0
+        tmp_string = ""
+
+        mesh_data = {}
+        nodes_data = {}
+        triangle_data = {}
+        quad_data = {}
+        element_data = {}
+        line_in_mesh_data = {}
+
+        for x in f:
+            counter = counter + 1
+            x = x.rstrip()
+            if x == "$Nodes":
+                tmp_string = "$Nodes"
+                counter_on_nodes = counter
+            if x == "$Elements":
+                tmp_string = "$Elements"
+                counter_on_elements = counter
+            if x == "$EndElements":
+                break
+
+            if tmp_string == "$Nodes":
+                x = x.split()
+                if len(x) == 4 and int(x[3]) != 0 and counter != counter_on_nodes + 1:
+                    number_of_nodes = int(x[3])
+                    tmp_list = list()
+                    
+                    for _ in range(2*number_of_nodes):
+                        x = next(f)
+                        x = x.rstrip()
+                        x = x.split()
+                        if len(x) == 1:
+                            tmp_list.append(int(x[0]))
+                        if len(x) == 3:
+                            tmp_list.append(numpy.array([float(x[0]), float(x[1]), float(x[2])]))
+                    
+                    for i in range(number_of_nodes):
+                        nodes_data[tmp_list[i]] = tmp_list[i + number_of_nodes]
+
+            if tmp_string == "$Elements":
+                x = x.split()
+                if len(x) == 4 and int(x[0]) == 2 and counter != counter_on_elements + 1:
+                    number_of_elements = int(x[3])
+                    tmp_list = list()
+                    surface_id = int(x[1])
+                    for _ in range(number_of_elements):
+                        x = next(f)
+                        x = x.rstrip()
+                        x = x.split()
+                        if len(x) == 4:
+                            surface_type = 'triangle'
+                            key = int(x[0])
+                            value = [int(x[1]), int(x[2]), int(x[3])]
+                            triangle_data[key] = value
+                            element_data[key] = {'nodesId': value, 'surfaceId': surface_id}
+                        if len(x) == 5:
+                            surface_type = 'quad'
+                            key = int(x[0])
+                            value = [int(x[1]), int(x[2]), int(x[3]), int(x[4])]
+                            quad_data[key] = value
+                            element_data[key] = {'nodesId': value, 'surfaceId': surface_id}
+
+                if len(x) == 4 and int(x[0]) == 1 and counter != counter_on_elements + 1:
+                    number_of_elements = int(x[3])
+                    tmp_list = list()
+                    line_id = int(x[1])
+                    for _ in range(number_of_elements):
+                        x = next(f)
+                        x = x.rstrip()
+                        x = x.split()
+                        if len(x) == 3:
+                            key = int(x[0])
+                            value = [int(x[1]), int(x[2])]
+                            line_in_mesh_data[key] = value
+
+        length_for_stiffeners = list(element_data.keys())[-1]
+
+        nodes_nmb = len(nodes_data)
+        triangle_nmb = len(triangle_data)
+        quad_nmb = len(quad_data)
+        element_nmb = len(element_data)
+
+        ##########################################################################
+        ##########################################################################
+        """
+        Compute statistics about mesh and returns figure.
+        """
+        def calculate_area(distance1, distance2, distance3):
+            """
+            Calculate area of traingle using Heron's formula.
+            """
+            s = (distance1 + distance2 + distance3)/2
+            return math.sqrt(s*(s - distance1)*(s - distance2)*(s - distance3))
+
+        def angle_triangle(point1, point2, point3):  
+            """
+            Calculate angle(in point1) in a triangle defined with point1, point2, point3.  
+            """
+            x1 = point1[0]
+            y1 = point1[1]
+            z1 = point1[2]
+
+            x2 = point2[0]
+            y2 = point2[1]
+            z2 = point2[2]
+
+            x3 = point3[0]
+            y3 = point3[1]
+            z3 = point3[2]
+
+            num = (x2-x1)*(x3-x1)+(y2-y1)*(y3-y1)+(z2-z1)*(z3-z1)  
+        
+            den = math.sqrt((x2-x1)**2+(y2-y1)**2+(z2-z1)**2)*math.sqrt((x3-x1)**2+(y3-y1)**2+(z3-z1)**2)  
+        
+            angle = math.degrees(math.acos(num / den))  
+        
+            return round(angle, 3)
+
+        triangle_ratio = {}
+        quad_ratio = {}
+        triangle_area = 0
+        quad_area = 0
+
+        # Calculate area of the model.
+
+        for key in triangle_data.keys():
+            point1 = nodes_data[triangle_data[key][0]]
+            point2 = nodes_data[triangle_data[key][1]]
+            point3 = nodes_data[triangle_data[key][2]]
+            
+            distances = list()
+            
+            distances.append(LA.norm(point1 - point2))
+            distances.append(LA.norm(point2 - point3))
+            distances.append(LA.norm(point3 - point1))
+
+            triangle_ratio[key] = min(distances)/max(distances)
+            triangle_area = triangle_area + calculate_area(distances[0],distances[1],distances[2])
+
+        for key in quad_data.keys():
+            point1 = nodes_data[quad_data[key][0]]
+            point2 = nodes_data[quad_data[key][1]]
+            point3 = nodes_data[quad_data[key][2]]
+            point4 = nodes_data[quad_data[key][3]]
+            
+            distances = list()
+            
+            distances.append(LA.norm(point1 - point2))
+            distances.append(LA.norm(point2 - point3))
+            distances.append(LA.norm(point3 - point4))
+            distances.append(LA.norm(point4 - point1))
+
+            diag_dist = LA.norm(point1 - point3)
+
+            quad_area = quad_area + calculate_area(distances[0],distances[1], diag_dist) + calculate_area(diag_dist, distances[2], distances[3]) 
+            quad_ratio[key] = min(distances)/max(distances)
+
+        geometry_area = triangle_area + quad_area
+
+        ##########################################################################
+
+        # Calculate number of traingles and quads with bad ratio between sides.
+        bad_traingles_counter = 0
+        bad_triangles_id = {}
+        for key in triangle_ratio.keys():
+            if triangle_ratio[key] < 0.2:
+                bad_traingles_counter = bad_traingles_counter + 1
+                bad_triangles_id[key] = triangle_ratio[key]
+
+        mesh_data["%T with ratio < 0.2"] = round(100*bad_traingles_counter/len(element_data),2)
+
+        bad_quad_counter = 0
+        bad_quad_id = {}
+        for key in quad_ratio.keys():
+            if quad_ratio[key] < 0.3334:
+                bad_quad_counter = bad_quad_counter + 1
+                bad_quad_id[key] = quad_ratio[key]
+
+        mesh_data["%Q with ratio < 0.334"] = round(100*bad_quad_counter/len(element_data),2)
+
+        ##########################################################################
+
+        # Calculate number of quads with all angles between 80 and 100 degrees. 
+        # Calculate percentage of the area quads with all angles between 80 and 100 degrees are covering
+        # Calculate percentage of triangle area.
+        lower_thr = 80  
+        upper_thr = 100
+
+        quad_angles = {}
+        bad_quad_angle_id = {}
+        bad_quad_angles_counter = 0
+        good_quad_area = 0
+        for key in quad_data.keys():
+            point1 = nodes_data[quad_data[key][0]]
+            point2 = nodes_data[quad_data[key][1]]
+            point3 = nodes_data[quad_data[key][2]]
+            point4 = nodes_data[quad_data[key][3]]
+
+            angle1 = angle_triangle(point1, point4, point2)
+            tmp_angle2 = angle_triangle(point2, point1, point4)
+            tmp_angle3 = angle_triangle(point4, point2, point1)
+
+            tmp_angle4 = angle_triangle(point2, point4, point3)
+            tmp_angle5 = angle_triangle(point4, point3, point2)
+            angle3 = angle_triangle(point3, point2, point4)
+
+            angle2 = tmp_angle2 + tmp_angle4
+            angle4 = tmp_angle3 + tmp_angle5
+
+            quad_angles[key] = [angle1, angle2, angle3, angle4]
+
+            if angle1 > lower_thr and angle2 > lower_thr and angle3 > lower_thr and angle4 > lower_thr  and angle1 < upper_thr and angle2 < upper_thr and angle3 < upper_thr and angle4 < upper_thr:
+                bad_quad_angle_id[key] = quad_angles[key]
+                bad_quad_angles_counter = bad_quad_angles_counter + 1
+
+                distances = list()
+
+                distances.append(LA.norm(point1 - point2))
+                distances.append(LA.norm(point2 - point3))
+                distances.append(LA.norm(point3 - point4))
+                distances.append(LA.norm(point4 - point1))
+
+                diag_dist = LA.norm(point1 - point3)
+
+                good_quad_area = good_quad_area + calculate_area(distances[0],distances[1], diag_dist) + calculate_area(diag_dist, distances[2], distances[3]) 
+
+        mesh_data["%Q > 80 and < 100"] = round(100*bad_quad_angles_counter/len(element_data),2)
+        mesh_data["% Area 80<Q<100"] = round(100*good_quad_area/geometry_area,2)
+        mesh_data["% Area T"] = round(100*triangle_area/geometry_area,2)
+        good_quads = bad_quad_angles_counter
+
+        # Calculate number of quads that have at least one angle lower then 45 degrees or larger then 100 degrees. 
+        lower_thr = 45  
+        upper_thr = 135
+
+        quad_angles = {}
+        bad_quad_angle_id = {}
+        bad_quad_angles_counter = 0
+
+        for key in quad_data.keys():
+            point1 = nodes_data[quad_data[key][0]]
+            point2 = nodes_data[quad_data[key][1]]
+            point3 = nodes_data[quad_data[key][2]]
+            point4 = nodes_data[quad_data[key][3]]
+
+            angle1 = angle_triangle(point1, point4, point2)
+            tmp_angle2 = angle_triangle(point2, point1, point4)
+            tmp_angle3 = angle_triangle(point4, point2, point1)
+
+            tmp_angle4 = angle_triangle(point2, point4, point3)
+            tmp_angle5 = angle_triangle(point4, point3, point2)
+            angle3 = angle_triangle(point3, point2, point4)
+
+            angle2 = tmp_angle2 + tmp_angle4
+            angle4 = tmp_angle3 + tmp_angle5
+
+            quad_angles[key] = [angle1, angle2, angle3, angle4]
+
+            if angle1 < lower_thr or angle2 < lower_thr or angle3 < lower_thr or angle4 < lower_thr  or angle1 > upper_thr or angle2 > upper_thr or angle3 > upper_thr or angle4 > upper_thr:
+                bad_quad_angle_id[key] = quad_angles[key]
+                bad_quad_angles_counter = bad_quad_angles_counter + 1
+
+        mesh_data["%Q < 45 or > 135"] = round(100*bad_quad_angles_counter/len(element_data),2)
+
+        # Calculate number of triangles that have at least one angle lower then 45 degrees or larger then 100 degrees. 
+        triangle_angles = {}
+        bad_triangle_angle_id = {}
+        bad_triangle_angles_counter = 0
+
+        for key in triangle_data.keys():
+            point1 = nodes_data[triangle_data[key][0]]
+            point2 = nodes_data[triangle_data[key][1]]
+            point3 = nodes_data[triangle_data[key][2]]
+
+            angle1 = angle_triangle(point1, point2, point3)
+            angle2 = angle_triangle(point2, point3, point1)
+            angle3 = angle_triangle(point3, point1, point2)
+            triangle_angles[key] = [angle1, angle2, angle3]
+
+            if angle1 < lower_thr or angle2 < lower_thr or angle3 < lower_thr  or angle1 > upper_thr or angle2 > upper_thr or angle3 > upper_thr :
+                bad_triangle_angles_counter = bad_triangle_angles_counter + 1
+                bad_triangle_angle_id[key] = triangle_angles[key]
+
+        mesh_data["%T < 45 or > 135"] = round(100*bad_triangle_angles_counter/len(element_data),2)
+
+        ##########################################################################
+
+        # Calculate number of quads that have at least one angle lower then 30 degrees or larger then 150 degrees. 
+        lower_thr = 30  
+        upper_thr = 150
+
+        quad_angles = {}
+        bad_quad_angle_id = {}
+        bad_quad_angles_counter = 0
+
+        for key in quad_data.keys():
+            point1 = nodes_data[quad_data[key][0]]
+            point2 = nodes_data[quad_data[key][1]]
+            point3 = nodes_data[quad_data[key][2]]
+            point4 = nodes_data[quad_data[key][3]]
+
+            angle1 = angle_triangle(point1, point4, point2)
+            tmp_angle2 = angle_triangle(point2, point1, point4)
+            tmp_angle3 = angle_triangle(point4, point2, point1)
+
+            tmp_angle4 = angle_triangle(point2, point4, point3)
+            tmp_angle5 = angle_triangle(point4, point3, point2)
+            angle3 = angle_triangle(point3, point2, point4)
+
+            angle2 = tmp_angle2 + tmp_angle4
+            angle4 = tmp_angle3 + tmp_angle5
+
+            quad_angles[key] = [angle1, angle2, angle3, angle4]
+
+            if angle1 < lower_thr or angle2 < lower_thr or angle3 < lower_thr or angle4 < lower_thr  or angle1 > upper_thr or angle2 > upper_thr or angle3 > upper_thr or angle4 > upper_thr:
+                bad_quad_angle_id[key] = quad_angles[key]
+                bad_quad_angles_counter = bad_quad_angles_counter + 1
+
+        mesh_data["%Q < 30 or > 150"] = round(100*bad_quad_angles_counter/len(element_data),2)
+
+        # Calculate number of triangles that have at least one angle lower then 30 degrees or larger then 150 degrees. 
+        triangle_angles = {}
+        bad_triangle_angle_id = {}
+        bad_triangle_angles_counter = 0
+
+        for key in triangle_data.keys():
+            point1 = nodes_data[triangle_data[key][0]]
+            point2 = nodes_data[triangle_data[key][1]]
+            point3 = nodes_data[triangle_data[key][2]]
+
+            angle1 = angle_triangle(point1, point2, point3)
+            angle2 = angle_triangle(point2, point3, point1)
+            angle3 = angle_triangle(point3, point1, point2)
+            triangle_angles[key] = [angle1, angle2, angle3]
+
+            if angle1 < lower_thr or angle2 < lower_thr or angle3 < lower_thr  or angle1 > upper_thr or angle2 > upper_thr or angle3 > upper_thr :
+                bad_triangle_angles_counter = bad_triangle_angles_counter + 1
+                bad_triangle_angle_id[key] = triangle_angles[key]
+
+        mesh_data["%T < 30 or > 150"] = round(100*bad_triangle_angles_counter/len(element_data),2)
+
+        ##########################################################################
+
+        # Calculate number of quads that have at least one angle lower then 10 degrees or larger then 170 degrees. 
+        lower_thr = 10  
+        upper_thr = 170
+
+        quad_angles = {}
+        bad_quad_angle_id = {}
+        bad_quad_angles_counter = 0
+
+        for key in quad_data.keys():
+            point1 = nodes_data[quad_data[key][0]]
+            point2 = nodes_data[quad_data[key][1]]
+            point3 = nodes_data[quad_data[key][2]]
+            point4 = nodes_data[quad_data[key][3]]
+
+            angle1 = angle_triangle(point1, point4, point2)
+            tmp_angle2 = angle_triangle(point2, point1, point4)
+            tmp_angle3 = angle_triangle(point4, point2, point1)
+
+            tmp_angle4 = angle_triangle(point2, point4, point3)
+            tmp_angle5 = angle_triangle(point4, point3, point2)
+            angle3 = angle_triangle(point3, point2, point4)
+
+            angle2 = tmp_angle2 + tmp_angle4
+            angle4 = tmp_angle3 + tmp_angle5
+
+            quad_angles[key] = [angle1, angle2, angle3, angle4]
+
+            if angle1 < lower_thr or angle2 < lower_thr or angle3 < lower_thr or angle4 < lower_thr  or angle1 > upper_thr or angle2 > upper_thr or angle3 > upper_thr or angle4 > upper_thr:
+                bad_quad_angle_id[key] = quad_angles[key]
+                bad_quad_angles_counter = bad_quad_angles_counter + 1
+
+        mesh_data["%Q < 10 or > 170"] = round(100*bad_quad_angles_counter/len(element_data),2)
+
+        # Calculate number of traingles that have at least one angle lower then 10 degrees or larger then 170 degrees. 
+        triangle_angles = {}
+        bad_triangle_angle_id = {}
+        bad_triangle_angles_counter = 0
+
+        for key in triangle_data.keys():
+            point1 = nodes_data[triangle_data[key][0]]
+            point2 = nodes_data[triangle_data[key][1]]
+            point3 = nodes_data[triangle_data[key][2]]
+
+            angle1 = angle_triangle(point1, point2, point3)
+            angle2 = angle_triangle(point2, point3, point1)
+            angle3 = angle_triangle(point3, point1, point2)
+            triangle_angles[key] = [angle1, angle2, angle3]
+
+            if angle1 < lower_thr or angle2 < lower_thr or angle3 < lower_thr  or angle1 > upper_thr or angle2 > upper_thr or angle3 > upper_thr :
+                bad_triangle_angles_counter = bad_triangle_angles_counter + 1
+                bad_triangle_angle_id[key] = triangle_angles[key]
+
+        mesh_data["%T < 10 or > 170"] = round(100*bad_triangle_angles_counter/len(element_data),2)
+
+        ##########################################################################
+
+        bad_elements_id = list()
+        for key in bad_triangle_angle_id.keys():
+            bad_elements_id.append(key)
+        for key in bad_quad_angle_id.keys():
+            bad_elements_id.append(key)
+        for key in bad_quad_id.keys():
+            bad_elements_id.append(key)
+        for key in bad_triangles_id.keys():
+            bad_elements_id.append(key)
+
+        bad_elements_id = list(set(bad_elements_id))
+        bad_elements_id.sort()
+
+        ##########################################################################
+        """
+        Plotting mesh data
+        """
+        width = 1.0
+        mesh_data_Length = len(mesh_data)
+        Max_Key_Length = 20
+        Sorted_Dict_Values = sorted(mesh_data.values(), reverse=True)
+        Sorted_Dict_Keys = sorted(mesh_data, key=mesh_data.get, reverse=True)
+        for i in range(0,mesh_data_Length):
+            Key = Sorted_Dict_Keys[i]
+            Key = Key[:Max_Key_Length]
+            Sorted_Dict_Keys[i] = Key
+        X = numpy.arange(mesh_data_Length)
+        Colors = ('b','g','r','c')  # blue, green, red, cyan
+
+        Figure = plt.figure(figsize = (20,10))
+        Axis = Figure.add_subplot(1,1,1)
+
+        def autolabel(rects):
+            """
+            Attach a text label above each bar displaying its height
+            """
+            for rect in rects:
+                height = rect.get_height()
+                Axis.text(rect.get_x() + rect.get_width()/2., 1.05*height,
+                        '%f' % float(height),
+                        ha='center', va='bottom')
+
+        for i in range(0,mesh_data_Length):
+            rects1 = Axis.bar(X[i], Sorted_Dict_Values[i], align='center',width=0.5, color=Colors[i%len(Colors)])
+            autolabel(rects1)
+
+        Axis.set_xticks(X)
+        xtickNames = Axis.set_xticklabels(Sorted_Dict_Keys)
+        plt.setp(Sorted_Dict_Keys)
+        plt.xticks(rotation=40)
+        ymax = max(Sorted_Dict_Values) + 1
+        plt.ylim(0,ymax+20)
+        plt.title(self.input_data_name + "\n" + "Nodes:" +  str(nodes_nmb) + ", Elements:" + str(element_nmb) + ", Percentage of traingles:" + str(round(100*triangle_nmb/element_nmb,2)) + "%" + ", Percentage of Quads:" + str(round(100*quad_nmb/element_nmb,2)) + "%" + ", Percentage of quads with angles between 80 and 100:" + str(round(100*good_quads/element_nmb,2)) + "%")
+        title_str = 'MeshStatistics-' + self.input_data_name + '.png'
+        plt.savefig(title_str)
+
+    def ComputeTimeStatistcs(self):
+        """
+        Computes time of algorithm phases and returns figure.
+        """
+        times = list()
+        times.append(1000*(self.end_time_101 - self.start_time_101))
+        times.append(1000*(self.end_time_102 - self.start_time_102))
+        times.append(1000*(self.end_time_103 - self.start_time_103))
+
+        colors = ['#8390FA', '#6EAF46', '#FAC748']
+        labels = ['Boolean','Triangulation','Recombination']
+        fig, ax = plt.subplots(1, figsize=(7, 6))
+        left = 0
+        for idx, time in enumerate(times):
+            plt.barh(0, time, left = left, color=colors[idx])
+            left = left + time
+        # title, legend, labels etc.
+        plt.title('Time statistics for algorithm phases\n', loc='center', fontsize = 14, y = 1.05)
+        plt.legend(labels, bbox_to_anchor=([0.05, 1.1, 0, 0]), ncol=3, frameon=False, loc = 'upper left', fontsize = 12)
+        plt.xlabel('Times in ms', fontsize = 14, y = -0.1)
+        ax.spines['right'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        ax.spines['top'].set_visible(True)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['right'].set_linewidth(2)
+        ax.spines['left'].set_linewidth(2)
+        ax.spines['top'].set_linewidth(2)
+        ax.spines['bottom'].set_linewidth(2)
+        ax.set_yticks([])
+        plt.xticks(fontsize = 14)
+        ax.set_axisbelow(True)
+        plt.ylim([-0.8, 0.8])
+        plt.ylabel(self.input_data_name, fontsize = 14, x = -0.1)
+        ax.xaxis.grid(color='gray', linestyle='dashed')
+        figure_name_string = 'TimeStatistics-' + self.input_data_name + '.png'
+        plt.savefig(figure_name_string)
+
     def MakeDict(self):
         """
-        Calls ConstructGeometry and prints time statistics.
+        Calls ConstructGeometry, ComputeStatistic and ComputeTimeStatistcs.
         """
         self.ConstructGeometry()
-        
-        print("\nStatistics summary\n")
-        print("Boolean operations --- %s seconds ---" % (self.end_time_101 - self.start_time_101))
-        print("Triangulation --- %s seconds ---" % (self.end_time_102 - self.start_time_102))
-        print("Recombination --- %s seconds ---" % (self.end_time_103 - self.start_time_103))
+        self.ComputeStatistics()
+        self.ComputeTimeStatistcs()

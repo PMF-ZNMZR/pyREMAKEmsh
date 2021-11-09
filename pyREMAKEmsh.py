@@ -1295,11 +1295,11 @@ class pyREMAKEmsh:
             # add warped surfaces
             if self.warped_flag == 1:
                 for i in range(len(self.Curve_loop_ids)):               
-                    tmp = geom.add_surface(self.Curve_loop_ids[i])
+                    tmp = gmsh.model.occ.addSurfaceFilling(self.Curve_loop_ids[i]._id)
                     self.Surfaces_done.append(tmp)                
                     for k in self.old_warped_new_warped_curve_loop.keys():
                         if self.Curve_loop_ids[i]._id in self.old_warped_new_warped_curve_loop[k]:
-                            self.old_warped_new_warped_surface_ids[k].append(tmp._id)
+                            self.old_warped_new_warped_surface_ids[k].append(tmp)
                 
             self.geo_name = "GeometryAfterBooleanOperations-" + self.input_data_name + ".geo_unrolled"
             geom.save_geometry(self.geo_name)

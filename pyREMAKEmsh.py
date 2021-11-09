@@ -40,6 +40,7 @@ class pyREMAKEmsh:
         self.input_data_name = input_data_name
         self.MakeDict()
 
+
     def HoleInfo(self, surface_id):
         """
         Returns hole information from input dictionary.
@@ -775,56 +776,177 @@ class pyREMAKEmsh:
                 tmp_number_of_points_after = len(tmp_points)
                 number_of_points.append(tmp_number_of_points_after - tmp_number_of_points_before)
 
+    def ChangeDictionaryForWarpedSurfaces(self):
+        """ 
+        Divide into 16 new surfaces and make dictionary for Warped surfaces from input dictionary - key: surface id, value: point id-s for that surface
+        """
+        def PlaneEquation(x, y, z):
+            """
+            Finds coefficients defining the plane
+            """
+            a = (y[1] - x[1])*(z[2] - x[2]) - (z[1] - x[1])*(y[2] - x[2])
+            b = (y[2] - x[2])*(z[0] - x[0]) - (z[2] - x[2])*(y[0] - x[0])
+            c = (y[0] - x[0])*(z[1] - x[1]) - (z[0] - x[0])*(y[1] - x[1])
+            d = -(a*x[0] + b*x[1] + c*x[2])
+            arr = [a, b, c, d]
+            return arr
+
+        def OnPlane(P, plane_coefficients):
+            """
+            Checks if point P lies on plane defined with plane_coefficients
+            """
+            if abs(P[0]*plane_coefficients[0] + P[1]*plane_coefficients[1] + P[2]*plane_coefficients[2] + plane_coefficients[3]) < self.tol:
+                return True
+            else:
+                return False
+   
+        surfaces_dict = {}
+        surfaces_dict_tmp = {}
+        points_dict = {}
+        surfaces = self.geometry_data['Surfaces']
+        
+        self.dist = list()
+        self.old_warped_new_warped = {}
+        self.old_warped_new_warped_curve_loop = {}
+        self.old_warped_new_warped_surface_ids = {}
+
+        #for k,v in self.geometry_data["Surfaces"].items(): print(k , v)
+        #print(len(self.geometry_data["Surfaces"].keys()))
+        self.warped_flag = 0
+        for i in surfaces.keys():
+            if len(surfaces[i]) == 4:
+                point0 = self.geometry_data['Points'][surfaces[i][0]]
+                point1 = self.geometry_data['Points'][surfaces[i][1]]
+                point2 = self.geometry_data['Points'][surfaces[i][2]]
+                point3 = self.geometry_data['Points'][surfaces[i][3]]
+                plane_coefficients = PlaneEquation(point0, point1, point2)
+                if OnPlane(point3, plane_coefficients) == False:
+                    flag = 1
+                    self.warped_flag = 1
+                    surfaces_dict_key = i
+                    surfaces_dict[surfaces_dict_key] = surfaces[i]
+        for i in surfaces_dict.keys():
+            surfaces.pop(i, None)
+        
+        tmp_length_surfaces = list(self.geometry_data['Surfaces'].keys())[-1]
+        
+        tmp_length_points = list(self.geometry_data['Points'].keys())[-1]
+        
+        #for k, v in surfaces_dict.items(): print(k, v) # better way to print!
+        #for k, v in self.points_dict_copy.items(): print(k, v) # better way to print!
+
+        for i in surfaces_dict.keys():
+            self.old_warped_new_warped[i] = list()
+            self.old_warped_new_warped_curve_loop[i] = list()
+            self.old_warped_new_warped_surface_ids[i] = list()
+
+            point0 = numpy.array(self.geometry_data['Points'][surfaces_dict[i][0]])
+            point1 = numpy.array(self.geometry_data['Points'][surfaces_dict[i][1]])
+            point2 = numpy.array(self.geometry_data['Points'][surfaces_dict[i][2]])
+            point3 = numpy.array(self.geometry_data['Points'][surfaces_dict[i][3]])
+
+            self.dist.append(LA.norm(0.25*(point3 - point0)))
+            self.dist.append(LA.norm(0.25*(point2 - point1)))
+
+            point4 = list(point0 + 0.25*(point3 - point0))
+            point6 = list(point0 + 0.5*(point3 - point0))
+            point8 = list(point0 + 0.75*(point3 - point0))
+
+            point5 = list(point1 + 0.25*(point2 - point1))
+            point7 = list(point1 + 0.5*(point2 - point1))
+            point9 = list(point1 + 0.75*(point2 - point1))
+
+            point10 = list(point0 + 0.25*(point1 - point0))
+            point12 = list(point0 + 0.5*(point1 - point0))
+            point14 = list(point0 + 0.75*(point1 - point0))
+
+            point11 = list(point3 + 0.25*(point2 - point3))
+            point13 = list(point3 + 0.5*(point2 - point3))
+            point15 = list(point3 + 0.75*(point2 - point3))
+
+            point10_nmp = numpy.array(point10)
+            point11_nmp = numpy.array(point11)
+            point12_nmp = numpy.array(point12)
+            point13_nmp = numpy.array(point13)
+            point14_nmp = numpy.array(point14)
+            point15_nmp = numpy.array(point15)
+
+            point16 = list(point10 + 0.25*(point11_nmp - point10_nmp))
+            point17 = list(point10 + 0.5*(point11_nmp - point10_nmp))
+            point18 = list(point10 + 0.75*(point11_nmp - point10_nmp))
+
+            point19 = list(point12 + 0.25*(point13_nmp - point12_nmp))
+            point20 = list(point12 + 0.5*(point13_nmp - point12_nmp))
+            point21 = list(point12 + 0.75*(point13_nmp - point12_nmp))
+            
+            point22 = list(point14 + 0.25*(point15_nmp - point14_nmp))
+            point23 = list(point14 + 0.5*(point15_nmp - point14_nmp))
+            point24 = list(point14 + 0.75*(point15_nmp - point14_nmp))
+
+
+            points_dict[tmp_length_points + 1] = point4
+            points_dict[tmp_length_points + 2] = point5
+            points_dict[tmp_length_points + 3] = point6
+            points_dict[tmp_length_points + 4] = point7
+            points_dict[tmp_length_points + 5] = point8
+            points_dict[tmp_length_points + 6] = point9
+            points_dict[tmp_length_points + 7] = point10
+            points_dict[tmp_length_points + 8] = point11
+            points_dict[tmp_length_points + 9] = point12
+            points_dict[tmp_length_points + 10] = point13
+            points_dict[tmp_length_points + 11] = point14
+            points_dict[tmp_length_points + 12] = point15
+            points_dict[tmp_length_points + 13] = point16
+            points_dict[tmp_length_points + 14] = point17
+            points_dict[tmp_length_points + 15] = point18
+            points_dict[tmp_length_points + 16] = point19
+            points_dict[tmp_length_points + 17] = point20
+            points_dict[tmp_length_points + 18] = point21
+            points_dict[tmp_length_points + 19] = point22
+            points_dict[tmp_length_points + 20] = point23
+            points_dict[tmp_length_points + 21] = point24
+
+            surfaces_dict_tmp[tmp_length_surfaces + 1] = [surfaces_dict[i][0], tmp_length_points + 7, tmp_length_points + 13, tmp_length_points + 1]
+            surfaces_dict_tmp[tmp_length_surfaces + 2] = [tmp_length_points + 1, tmp_length_points + 13, tmp_length_points + 14, tmp_length_points + 3]
+            surfaces_dict_tmp[tmp_length_surfaces + 3] = [tmp_length_points + 3, tmp_length_points + 14, tmp_length_points + 15, tmp_length_points + 5]
+            surfaces_dict_tmp[tmp_length_surfaces + 4] = [tmp_length_points + 5, tmp_length_points + 15, tmp_length_points + 8, surfaces_dict[i][3]]
+
+            surfaces_dict_tmp[tmp_length_surfaces + 5] = [tmp_length_points + 7, tmp_length_points + 9, tmp_length_points + 16, tmp_length_points + 13]
+            surfaces_dict_tmp[tmp_length_surfaces + 6] = [tmp_length_points + 13, tmp_length_points + 16, tmp_length_points + 17, tmp_length_points + 14]
+            surfaces_dict_tmp[tmp_length_surfaces + 7] = [tmp_length_points + 14, tmp_length_points + 17, tmp_length_points + 18, tmp_length_points + 15]
+            surfaces_dict_tmp[tmp_length_surfaces + 8] = [tmp_length_points + 15, tmp_length_points + 18, tmp_length_points + 10, tmp_length_points + 8]
+
+            surfaces_dict_tmp[tmp_length_surfaces + 9] = [tmp_length_points + 9, tmp_length_points + 11, tmp_length_points + 19, tmp_length_points + 16]
+            surfaces_dict_tmp[tmp_length_surfaces + 10] = [tmp_length_points + 16, tmp_length_points + 19, tmp_length_points + 20, tmp_length_points + 17]
+            surfaces_dict_tmp[tmp_length_surfaces + 11] = [tmp_length_points + 17, tmp_length_points + 20, tmp_length_points + 21, tmp_length_points + 18]
+            surfaces_dict_tmp[tmp_length_surfaces + 12] = [tmp_length_points + 18, tmp_length_points + 21, tmp_length_points + 12, tmp_length_points + 10]
+
+            surfaces_dict_tmp[tmp_length_surfaces + 13] = [tmp_length_points + 11, surfaces_dict[i][1], tmp_length_points + 2, tmp_length_points + 19]
+            surfaces_dict_tmp[tmp_length_surfaces + 14] = [tmp_length_points + 19, tmp_length_points + 2, tmp_length_points + 4, tmp_length_points + 20]
+            surfaces_dict_tmp[tmp_length_surfaces + 15] = [tmp_length_points + 20, tmp_length_points + 4, tmp_length_points + 6, tmp_length_points + 21]
+            surfaces_dict_tmp[tmp_length_surfaces + 16] = [tmp_length_points + 21, tmp_length_points + 6, surfaces_dict[i][2], tmp_length_points + 12]
+
+            for j in range(1,17):
+                self.old_warped_new_warped[i].append(tmp_length_surfaces + j)
+
+            tmp_length_points = tmp_length_points + 21
+            tmp_length_surfaces = tmp_length_surfaces + 16 
+            
+        self.geometry_data["Surfaces"].update(surfaces_dict_tmp)
+        self.geometry_data["Points"].update(points_dict)
+        
+        #for k,v in self.geometry_data["Surfaces"].items(): print(k , v)
+        #print(len(self.geometry_data["Surfaces"].keys()))
+
     def ConstructGeometry(self):
         """
         Making geometry and mesh
         """
         with pygmsh.occ.Geometry() as geom:
-            
-            
-            self.virtual_stiffeners_dict = {0:0}
-            self.number_of_holes_counter = 0
-
-            for key in self.geometry_data['SurfacesWithHoles'].keys():
-                self.MakeHole(key)
-
-            del self.virtual_stiffeners_dict[0]
-
-            # add points
-            self.Points_done = {}
-            for i in self.geometry_data['Points'].keys():
-                tmp_add_point_var = geom.add_point(self.geometry_data['Points'][i]) 
-                self.Points_done[i] = tmp_add_point_var
-        
-            # add stiffeners
-            self.Lines_on_2edged_surface_done = list()
-            for i in self.geometry_data['Stiffeners'].keys():
-                self.Lines_on_2edged_surface_done.append(geom.add_line(self.Points_done[self.geometry_data['Stiffeners'][i][0]], self.Points_done[self.geometry_data['Stiffeners'][i][1]]))
-
-            # add edges
-            self.Edges_done = list()
-            for i in self.geometry_data['Edges'].keys():
-                self.Edges_done.append(geom.add_line(self.Points_done[self.geometry_data['Edges'][i][0]], self.Points_done[self.geometry_data['Edges'][i][1]]))
-            
-            # add virtual stiffeners
-            self.edges_done_last_index = len(self.Edges_done)
-            for i in self.virtual_stiffeners_dict.keys():
-                self.Edges_done.append(geom.add_line(self.Points_done[self.virtual_stiffeners_dict[i][0]], self.Points_done[self.virtual_stiffeners_dict[i][1]]))
-
-            # add surfaces
-            self.Surfaces_done = list()
-            for i in self.geometry_data['Surfaces'].keys():               
-                edge_points = list()
-                for j in range(len(self.geometry_data['Surfaces'][i])):
-                    edge_points.append(list(self.geometry_data['Points'][self.geometry_data['Surfaces'][i][j]]))
-                self.Surfaces_done.append(geom.add_polygon(edge_points))
-            
-            self.Points_done_not_on_any_entity = {key: self.Points_done[key]
-                for key in self.geometry_data['PointsForResponse'].keys()}
 
             def PlaneEquation(x, y, z):
                 """
-                Finds coefficients defining the plane.
+                Finds coefficients defining the plane
                 """
                 a = (y[1] - x[1])*(z[2] - x[2]) - (z[1] - x[1])*(y[2] - x[2])
                 b = (y[2] - x[2])*(z[0] - x[0]) - (z[2] - x[2])*(y[0] - x[0])
@@ -835,13 +957,13 @@ class pyREMAKEmsh:
 
             def OnPlane(P, plane_coefficients):
                 """
-                Checks if point P lies on plane defined with plane_coefficients.
+                Checks if point P lies on plane defined with plane_coefficients
                 """
                 if abs(P[0]*plane_coefficients[0] + P[1]*plane_coefficients[1] + P[2]*plane_coefficients[2] + plane_coefficients[3]) < self.tol:
                     return True
                 else:
                     return False
-            
+
             def InTriangle(P, Q1, Q2, Q3):
                 """
                 Checks if point P is inside triangle defined with points Q1, Q2, Q3.
@@ -903,7 +1025,89 @@ class pyREMAKEmsh:
                     return True
                 else:
                     return False
+                          
+            self.virtual_stiffeners_dict = {0:0}
+            self.number_of_holes_counter = 0
+
+            for key in self.geometry_data['SurfacesWithHoles'].keys():
+                self.MakeHole(key)
+
+            del self.virtual_stiffeners_dict[0]
+
+            # add points
+            self.Points_done = {}
+            for i in self.geometry_data['Points'].keys():
+                tmp_add_point_var = geom.add_point(self.geometry_data['Points'][i]) 
+                self.Points_done[i] = tmp_add_point_var
+        
+            # add stiffeners
+            self.Lines_on_2edged_surface_done = list()
+            for i in self.geometry_data['Stiffeners'].keys():
+                self.Lines_on_2edged_surface_done.append(geom.add_line(self.Points_done[self.geometry_data['Stiffeners'][i][0]], self.Points_done[self.geometry_data['Stiffeners'][i][1]]))
+
+            # add edges
+            self.Edges_done = list()
+            for i in self.geometry_data['Edges'].keys():
+                self.Edges_done.append(geom.add_line(self.Points_done[self.geometry_data['Edges'][i][0]], self.Points_done[self.geometry_data['Edges'][i][1]]))
             
+            # add virtual stiffeners
+            self.edges_done_last_index = len(self.Edges_done)
+            if self.warped_flag == 0:
+                for i in self.virtual_stiffeners_dict.keys():
+                    self.Edges_done.append(geom.add_line(self.Points_done[self.virtual_stiffeners_dict[i][0]], self.Points_done[self.virtual_stiffeners_dict[i][1]]))
+
+            # add surfaces
+            if self.warped_flag == 0:
+                self.Surfaces_done = list()
+                for i in self.geometry_data['Surfaces'].keys():               
+                    edge_points = list()
+                    for j in range(len(self.geometry_data['Surfaces'][i])):
+                        edge_points.append(list(self.geometry_data['Points'][self.geometry_data['Surfaces'][i][j]]))
+                    self.Surfaces_done.append(geom.add_polygon(edge_points))
+
+            self.Curve_loop_ids = list()           
+            if self.warped_flag == 1:
+                self.Surfaces_done = list()
+                self.Lines_ids = list()
+                
+                for i in self.geometry_data['Surfaces'].keys():               
+                    edge_points = list()
+                    for j in range(len(self.geometry_data['Surfaces'][i])):
+                        edge_points.append(list(self.geometry_data['Points'][self.geometry_data['Surfaces'][i][j]]))
+
+                    if len(edge_points)>4:
+                        self.Surfaces_done.append(geom.add_polygon(edge_points))
+
+                    if len(edge_points)<4:
+                        self.Surfaces_done.append(geom.add_polygon(edge_points))
+
+                    if len(edge_points)==4:
+                        Lines_ids_tmp = list()
+                        plane_coefficients = PlaneEquation(edge_points[0], edge_points[1], edge_points[2])
+                        if OnPlane(edge_points[3], plane_coefficients) == True:
+                            self.Surfaces_done.append(geom.add_polygon(edge_points))
+                        else:
+                            for j in range(len(self.geometry_data['Surfaces'][i])):    
+                                if j == len(self.geometry_data['Surfaces'][i]) - 1:
+                                    tmp_add_line_1 = geom.add_line(self.Points_done[self.geometry_data['Surfaces'][i][j]], self.Points_done[self.geometry_data['Surfaces'][i][0]])
+                                    Lines_ids_tmp.append(tmp_add_line_1)
+                                    self.Lines_ids.append(tmp_add_line_1)
+                                else:
+                                    tmp_add_line_2 = geom.add_line(self.Points_done[self.geometry_data['Surfaces'][i][j]], self.Points_done[self.geometry_data['Surfaces'][i][j+1]])
+                                    Lines_ids_tmp.append(tmp_add_line_2)
+                                    self.Lines_ids.append(tmp_add_line_2)
+
+                            tmp_curve_loop = geom.add_curve_loop([Lines_ids_tmp[0], Lines_ids_tmp[1], Lines_ids_tmp[2], Lines_ids_tmp[3]])
+                            self.Curve_loop_ids.append(tmp_curve_loop)
+
+                            for k in self.old_warped_new_warped_curve_loop.keys():
+                                if i in self.old_warped_new_warped[k]:
+                                    self.old_warped_new_warped_curve_loop[k].append(tmp_curve_loop._id)
+                                    break
+
+            self.Points_done_not_on_any_entity = {key: self.Points_done[key]
+                for key in self.geometry_data['PointsForResponse'].keys()}
+           
             list_of_keys_of_used_points = copy.deepcopy(list(self.Points_done_not_on_any_entity.keys()))
 
             # force mesh to contain points for response as nodes
@@ -952,6 +1156,9 @@ class pyREMAKEmsh:
             
                     new_surfaces = geom.boolean_fragments(self.Surfaces_done[0], self.Surfaces_done[1:])
 
+                    if len(self.Curve_loop_ids):
+                        new_surfaces = geom.boolean_fragments(new_surfaces[0:], self.Lines_ids[0:])
+
                     if len(self.Lines_on_2edged_surface_done) > 1 and len(self.Edges_done) > 1:
                         new_surfaces2 = geom.boolean_fragments(new_surfaces[0:], self.Lines_on_2edged_surface_done[0:])
                         new_surfaces3 = geom.boolean_fragments(new_surfaces2[0:], self.Edges_done[0:])
@@ -987,6 +1194,9 @@ class pyREMAKEmsh:
                         new_surfaces = geom.boolean_difference(self.Surfaces_done[0], self.Surfaces_done[len(self.Surfaces_done) - self.number_of_holes_counter:len(self.Surfaces_done)])
                     else:
                         new_surfaces = geom.boolean_difference(self.Surfaces_done[0:len(self.Surfaces_done) - self.number_of_holes_counter], self.Surfaces_done[len(self.Surfaces_done) - self.number_of_holes_counter:len(self.Surfaces_done)])
+
+                    if len(self.Curve_loop_ids):
+                        new_surfaces = geom.boolean_fragments(new_surfaces[0:], self.Lines_ids[0:])
 
                     if len(self.Lines_on_2edged_surface_done) > 1 and len(self.Edges_done) > 1:
                         new_surfaces2 = geom.boolean_fragments(new_surfaces[0:], self.Lines_on_2edged_surface_done[0:])
@@ -1081,22 +1291,32 @@ class pyREMAKEmsh:
                 gmsh.model.occ.removeAllDuplicates()
 
             self.end_time_101 = time.time()
-
+            
+            # add warped surfaces
+            if self.warped_flag == 1:
+                for i in range(len(self.Curve_loop_ids)):               
+                    tmp = geom.add_surface(self.Curve_loop_ids[i])
+                    self.Surfaces_done.append(tmp)                
+                    for k in self.old_warped_new_warped_curve_loop.keys():
+                        if self.Curve_loop_ids[i]._id in self.old_warped_new_warped_curve_loop[k]:
+                            self.old_warped_new_warped_surface_ids[k].append(tmp._id)
+                
             self.geo_name = "GeometryAfterBooleanOperations-" + self.input_data_name + ".geo_unrolled"
             geom.save_geometry(self.geo_name)
             
             self.start_time_102 = time.time()
 
             # meshing geometry, see geometry.py from pygmsh for more input info
-            #
+            
             gmsh.option.setNumber("Mesh.Algorithm", 9)
+            gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
             self.mesh = geom.generate_mesh(dim=2, verbose = False)
             self.end_time_102 = time.time()
             self.msh_name = "NonRecombinedMesh-" + self.input_data_name + ".msh"
             pygmsh.write(self.msh_name)
 
             gmsh.model.mesh.removeDuplicateNodes()
-            gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
+            
             self.start_time_103 = time.time()
             gmsh.model.mesh.recombine()
             self.end_time_103 = time.time()
@@ -1605,6 +1825,7 @@ class pyREMAKEmsh:
         """
         Calls ConstructGeometry, ComputeStatistic and ComputeTimeStatistcs.
         """
+        self.ChangeDictionaryForWarpedSurfaces()
         self.ConstructGeometry()
         self.ComputeStatistics()
         self.ComputeTimeStatistcs()
